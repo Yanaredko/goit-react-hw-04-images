@@ -1,4 +1,4 @@
-import React, { Component } from 'react';
+import React, { useState, useEffect } from 'react';
 import '../index.css';
 import Searchbar from './Searchbar';
 import ImageGallery from './ImageGallery';
@@ -8,99 +8,79 @@ import Loader from './Loader';
 import Modal from './Modal';
 import { fetchImages } from '../api';
 
-class App extends Component {
-  state = {
-    query: '',
-    images: [],
-    page: 1,
-    isLoading: false,
-    showModal: false,
-    modalImage: '',
-    isLoadingMore: false,
-    noMoreImages: false,
-    totalHits: 0,
-    showImages: false,
-  };
+function App() {
+  const [query, setQuery] = useState('');
+  const [images, setImages] = useState([]);
+  const [page, setPage] = useState(1);
+  const [isLoading, setIsLoading] = useState(false);
+  const [showModal, setShowModal] = useState(false);
+  const [modalImage, setModalImage] = useState('');
+  const [setNoMoreImages] = useState(false);
+  const [totalHits, setTotalHits] = useState(0);
 
-  componentDidUpdate(_, prevState) {
-    if (prevState.query !== this.state.query || prevState.page !== this.state.page) {
-      this.loadImages()
-    }
-  }
+  useEffect(() => {
+    if (query === '') return;
 
-  handleSearch = (query) => {
-    this.setState({ query, images: [], page: 1 }) 
-  };
-
-  loadMore = () => {
-    this.setState((prevState) => ({
-      page: prevState.page + 1
-    }));
-  }
-
-  loadImages = () => {
-    const { query, page } = this.state;
-
-    if (!query) {
-      return; 
-    }
-
-    this.setState({ isLoading: true });
+    setIsLoading(true);
 
     fetchImages(query, page)
       .then((data) => {
         if (data.hits.length === 0) {
-          this.setState({ noMoreImages: true });
+          setNoMoreImages(true);
           return;
         }
 
-        this.setState((prevState) => ({
-          images: [...prevState.images, ...data.hits],
-          totalHits: data.totalHits,
-        }));
+        setImages((prevImages) => [...prevImages, ...data.hits]);
+        setTotalHits(data.totalHits);
       })
       .catch((error) => console.error(error))
       .finally(() => {
-        this.setState({ isLoading: false });
+        setIsLoading(false);
       });
+  }, [query, page, setNoMoreImages]);
+
+  const handleSearch = (newQuery) => {
+    setQuery(newQuery);
+    setImages([]);
+    setPage(1);
   };
 
-  openModal = (imageURL) => {
-    this.setState({ showModal: true, modalImage: imageURL });
+  const loadMore = () => {
+    setPage((prevPage) => prevPage + 1);
   };
 
-  closeModal = () => {
-    this.setState({ showModal: false, modalImage: '' });
+  const openModal = (imageURL) => {
+    setShowModal(true);
+    setModalImage(imageURL);
   };
 
-  render() {
-    const { images, isLoading, showModal, modalImage, totalHits } = this.state;
+  const closeModal = () => {
+    setShowModal(false);
+    setModalImage('');
+  };
 
-    return (
-      <div className="App">
-        <Searchbar onSubmit={this.handleSearch} />
-        {images.length > 0 && (
-          <ImageGallery>
-            {images.map((image) => (
-              <ImageGalleryItem
-                key={image.id}
-                src={image.webformatURL}
-                alt={image.tags}
-                onClick={() => this.openModal(image.largeImageURL)}
-              />
-            ))}
-          </ImageGallery>
-        )}
-        {isLoading && <Loader />}
-        {images.length > 0 && images.length < totalHits && (
-          <Button onClick={this.loadMore} />
-        )}
-        {showModal && (
-          <Modal src={modalImage} alt="" onClose={this.closeModal} />
-        )}
-      </div>
-    );
-  }
+  return (
+    <div className="App">
+      <Searchbar onSubmit={handleSearch} />
+      {images.length > 0 && (
+        <ImageGallery>
+          {images.map((image) => (
+            <ImageGalleryItem
+              key={image.id}
+              src={image.webformatURL}
+              alt={image.tags}
+              onClick={() => openModal(image.largeImageURL)}
+            />
+          ))}
+        </ImageGallery>
+      )}
+      {isLoading && <Loader />}
+      {images.length > 0 && images.length < totalHits && (
+        <Button onClick={loadMore} />
+      )}
+      {showModal && <Modal src={modalImage} alt="" onClose={closeModal} />}
+    </div>
+  );
 }
 
 export default App;
